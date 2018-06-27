@@ -652,7 +652,7 @@ Auto_EDA<-function(dataset){
   require(corrplot)
   require(fitdistrplus)
 
-  start<-dlgMessage(message = c("It is highly advised to pre-process data using Pre_Proc() before EDA",
+  start<-dlgMessage(message = c("It is highly advised to pre-process data using the 'Pre_Proc' function in this package before EDA",
                                 "Do you want to continue?"),type = "yesno")$res
   suppressWarnings(if(start == "yes"){
     dlgMessage(message = "Choose the directory where reports and plots will be saved",type = "ok")
@@ -984,11 +984,11 @@ Auto_EDA<-function(dataset){
             plot(fitdist(data = dt_num[[i]],distr = fits_plot[j]))
             dev.off()
           },error = function(e){
-            err_dis<-dlgMessage(message = c(paste("Fitted distribution (",fits_plot[j],") could not be generated for the variable :",colnames(dt_num)[i],sep = ""),
-                                            "Do you want to view the error message?"),type = "yesno")$res
-            if(err_dis == "yes"){
-              dlgMessage(message = paste("ERROR:",e,sep = " "),type = "ok")
-            }
+            # err_dis<-dlgMessage(message = c(paste("Fitted distribution (",fits_plot[j],") could not be generated for the variable :",colnames(dt_num)[i],sep = ""),
+            #                                 "Do you want to view the error message?"),type = "yesno")$res
+            # if(err_dis == "yes"){
+            #   dlgMessage(message = paste("ERROR:",e,sep = " "),type = "ok")
+            # }
             dev_off<-dev.off()
             file.remove(fl_nm)
           })
