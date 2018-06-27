@@ -647,7 +647,7 @@ Auto_EDA<-function(dataset){
   require(data.table)
   require(svDialogs)
   require(moments)
-  require(xlsx)
+  require(openxlsx)
   require(ggplot2)
   require(corrplot)
   require(fitdistrplus)
@@ -739,10 +739,10 @@ Auto_EDA<-function(dataset){
           write.csv2(x = dt_sum,row.names = F,file = paste(sv_path,"Data_Summary_Num.csv",sep = "\\"))
         }
         else if(sv_form == ".xls"){
-          write.xlsx2(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Num.xls",sep = "\\"))
+          write.xlsx(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Num.xls",sep = "\\"))
         }
         else if(sv_form == ".xlsx"){
-          write.xlsx2(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Num.xlsx",sep = "\\"))
+          write.xlsx(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Num.xlsx",sep = "\\"))
         }
 
         dlgMessage(message = "The data summary report has been successfully saved in the chosen directory",type = "ok")
@@ -783,10 +783,10 @@ Auto_EDA<-function(dataset){
           write.csv2(x = dt_sum_cat,row.names = F,file = paste(sv_path,"Data_Summary_Cat.csv",sep = "\\"))
         }
         else if(sv_form == ".xls"){
-          write.xlsx2(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Cat.xls",sep = "\\"))
+          write.xlsx(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Cat.xls",sep = "\\"))
         }
         else if(sv_form == ".xlsx"){
-          write.xlsx2(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Cat.xlsx",sep = "\\"))
+          write.xlsx(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Cat.xlsx",sep = "\\"))
         }
 
         dlgMessage(message = "The data summary report has been successfully saved in the chosen directory",type = "ok")
