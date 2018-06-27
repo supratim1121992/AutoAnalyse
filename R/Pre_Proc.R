@@ -11,9 +11,6 @@
 # Date custom input
 # Primary key
 
-# Outliers (show -1/1,-2/2,-3/3 sd)
-# Outlier imputation
-
 # Logs for error handling
 # Overwrite file or save
 # Create directory for Graphs (with date and time) in source directory
@@ -21,6 +18,7 @@
 # Transformations(log, dummification) -- Done
 # Normalisation and standardisation -- Done
 # Minimum no.of datapoints required and suggested confidence -- Done
+# Outlier imputation -- Done
 
 
 #' Pre-process dataset
