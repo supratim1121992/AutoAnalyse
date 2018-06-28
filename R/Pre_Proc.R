@@ -386,8 +386,9 @@ Pre_Proc<-function(dataset){
     num_cls<-which(dt_cls %in% c("numeric","integer"))
     num_dt<-dt[,num_cls,with = F]
     colnames(num_dt)<-colnames(dt)[num_cls]
-    cls_dt<-dt[,-num_cls,with = F]
-    colnames(cls_dt)<-colnames(dt)[-num_cls]
+    cat_cls<-which(dt_cls %in% c("numeric","integer") == F)
+    cls_dt<-dt[,cat_cls,with = F]
+    colnames(cls_dt)<-colnames(dt)[cat_cls]
     t_choice<-vector()
     if(ncol(num_dt) > 0){
       t_choice<-c(t_choice,"Logarithmic transformation","Normalisation","Standardisation")
