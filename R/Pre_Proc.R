@@ -989,7 +989,7 @@ Auto_EDA<-function(dataset){
                  type = "ok")
     }
 
-    if("Frequency plots" %in% gen_plots | "All" %in% gen_plots){
+    if("Frequency plots" %in% gen_plots | "All" %in% gen_plots & ncol(dt_cat) > 0){
       colnm<-gsub(pattern = "\\%",replacement = "pct",x = colnames(dt_cat))
       err_hist<-err_hist_var<-vector()
       for(i in 1:ncol(dt_cat)){
