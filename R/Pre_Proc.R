@@ -7,18 +7,14 @@
 # Dimensionality reduction and factor analysis, variable importance
 # Duplicates check
 # Print best fit and present options accordingly
-# Multiple target support
 # Date custom input
-# Primary key
-
-# Logs for error handling
-# Overwrite file or save
-# Create directory for Graphs (with date and time) in source directory
 
 # Transformations(log, dummification) -- Done
 # Normalisation and standardisation -- Done
 # Minimum no.of datapoints required and suggested confidence -- Done
 # Outlier imputation -- Done
+# Logs for error handling -- Done
+# Overwrite file or save -- Done
 
 
 #' Pre-process dataset
@@ -232,153 +228,155 @@ Pre_Proc<-function(dataset){
 
   ################################-----Outlier detection and replacement-----################################
 
-  perf_out<-dlgMessage(message = "Do you want to perform Outlier Analysis?",type = "yesno")$res
-  if(perf_out == "yes"){
-    dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-    dt_cls<-as.character(dt_cls)
-    num_cls<-which(dt_cls %in% c("numeric","integer"))
-    num_dt<-dt[,num_cls,with = F]
-    colnames(num_dt)<-colnames(dt)[num_cls]
-    out<-dlgList(choices = c("Detect outliers using standard deviation","Detect outliers using Interquartile range (IQR)"),
-                 preselect = "Detect outliers using standard deviation",multiple = F,title = "Outlier detection")$res
-    if(out == "Detect outliers using standard deviation"){
-      out_list<-vector(length = ncol(num_dt),mode = "list")
-      names(out_list)<-colnames(num_dt)
-      for(i in 1:ncol(num_dt)){
-        sdev<-sd(x = num_dt[[i]],na.rm = T)
-        mean_val<-mean(x = num_dt[[i]],na.rm = T)
-        outlier<-which(num_dt[[i]] > (mean_val + (3*sdev)) | num_dt[[i]] < (mean_val - (3*sdev)))
-        out_list[[i]]<-outlier
-      }
-      out_dt<-dt[unique(unlist(out_list)),]
-      if(nrow(out_dt) >= 1){
-        write.csv(x = out_dt,file = "Outliers.csv",row.names = F)
-      }
-      dlgMessage(message = c("The data containing entries with the outliers has been saved in your working directory",
-                             "Please review the file"))
-      out_l<-unlist(lapply(X = out_list,FUN = length))
-      names(out_l)<-names(out_list)
-      out_lmax<-max(out_l,na.rm = T)
-      if(out_lmax <= 0){
-        dlgMessage(message = "No outliers have been detected in the data",type = "ok")
-      }
-      else if(out_lmax > 0){
-        rem_out<-dlgMessage(message = "Do you want to inspect the outliers in your data?",
-                            type = "yesno")$res
-        if(rem_out == "no"){
-          dlgMessage(message = "Outliers have been retained in the data",type = "ok")
+  if("numeric" %in% cls | "integer" %in% cls){
+    perf_out<-dlgMessage(message = "Do you want to perform Outlier Analysis?",type = "yesno")$res
+    if(perf_out == "yes"){
+      dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
+      dt_cls<-as.character(dt_cls)
+      num_cls<-which(dt_cls %in% c("numeric","integer"))
+      num_dt<-dt[,num_cls,with = F]
+      colnames(num_dt)<-colnames(dt)[num_cls]
+      out<-dlgList(choices = c("Detect outliers using standard deviation","Detect outliers using Interquartile range (IQR)"),
+                   preselect = "Detect outliers using standard deviation",multiple = F,title = "Outlier detection")$res
+      if(out == "Detect outliers using standard deviation"){
+        out_list<-vector(length = ncol(num_dt),mode = "list")
+        names(out_list)<-colnames(num_dt)
+        for(i in 1:ncol(num_dt)){
+          sdev<-sd(x = num_dt[[i]],na.rm = T)
+          mean_val<-mean(x = num_dt[[i]],na.rm = T)
+          outlier<-which(num_dt[[i]] > (mean_val + (3*sdev)) | num_dt[[i]] < (mean_val - (3*sdev)))
+          out_list[[i]]<-outlier
         }
-        if(rem_out == "yes"){
-          out_act<-dlgList(choices = c("Remove outliers","Replace outliers"),multiple = F,
-                           preselect = "Remove outliers",title = "Outlier action")$res
-          out_ex<-out_l[which(out_l > 0)]
-          names(out_ex)<-names(out_l)[which(out_l > 0)]
-          out_var<-names(out_ex)
-          out_L<-paste(out_ex,"outliers",sep = " ")
-          out_choice<-paste(out_var,out_L,sep = " : ")
-          if(out_act == "Remove outliers"){
-            rem_out_var<-dlgList(choices = c(out_choice,"Do not remove any outliers                            ")
-                                 ,multiple = T,title = "Choose the variables to remove outliers from")$res
-            if("Do not remove any outliers                            " %in% rem_out_var){
-              dlgMessage(message = "Outliers have been retained in the data")
-            }
-            else{
-              rem_dt<-which(out_choice %in% rem_out_var)
-              rem_col<-names(out_ex)[rem_dt]
-              out_ls<-which(names(out_list) %in% rem_col)
-              rem_ID<-vector()
-              for(i in 1:length(out_ls)){
-                rem_id<-out_list[[out_ls[i]]]
-                rem_ID<-c(rem_ID,rem_id)
+        out_dt<-dt[unique(unlist(out_list)),]
+        if(nrow(out_dt) >= 1){
+          write.csv(x = out_dt,file = "Pre_Proc-Outliers.csv",row.names = F)
+          dlgMessage(message = c("The data containing entries with the outliers has been saved in your working directory",
+                                 "Please review the file before proceeding"))
+        }
+        out_l<-unlist(lapply(X = out_list,FUN = length))
+        names(out_l)<-names(out_list)
+        out_lmax<-max(out_l,na.rm = T)
+        if(out_lmax <= 0){
+          dlgMessage(message = "No outliers have been detected in the data",type = "ok")
+        }
+        else if(out_lmax > 0){
+          rem_out<-dlgMessage(message = c("Do you want to remove/replace the outliers in your data?",
+                                          "To retain the outliers, choose 'No'"),type = "yesno")$res
+          if(rem_out == "no"){
+            dlgMessage(message = "Outliers have been retained in the data",type = "ok")
+          }
+          if(rem_out == "yes"){
+            out_act<-dlgList(choices = c("Remove outliers","Replace outliers"),multiple = F,
+                             preselect = "Remove outliers",title = "Outlier action")$res
+            out_ex<-out_l[which(out_l > 0)]
+            names(out_ex)<-names(out_l)[which(out_l > 0)]
+            out_var<-names(out_ex)
+            out_L<-paste(out_ex,"outliers",sep = " ")
+            out_choice<-paste(out_var,out_L,sep = " : ")
+            if(out_act == "Remove outliers"){
+              rem_out_var<-dlgList(choices = c(out_choice,"Do not remove any outliers                            ")
+                                   ,multiple = T,title = "Choose the variables to remove outliers from")$res
+              if("Do not remove any outliers                            " %in% rem_out_var){
+                dlgMessage(message = "Outliers have been retained in the data")
               }
-              rem_ID<-unique(rem_ID)
-              dt<-dt[-rem_ID,]
-              dlgMessage(message = "The outliers have been removed successfully",type = "ok")
-            }
-          }
-          if(out_act == "Replace outliers"){
-            for(i in 1:length(out_var)){
-              dt[dt[[out_var[i]]] < (mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T)),
-                 out_var[i] := (mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T))]
-              dt[dt[[out_var[i]]] > (mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T)),
-                 out_var[i] := (mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T))]
-            }
-            dlgMessage(message = "Outliers have been successfully replaced")
-          }
-        }
-      }
-    }
-    else if(out == "Detect outliers using Interquartile range (IQR)"){
-      out_list<-vector(length = ncol(num_dt),mode = "list")
-      names(out_list)<-colnames(num_dt)
-      for(i in 1:ncol(num_dt)){
-        quant<-quantile(num_dt[[i]],na.rm = T)
-        iqr<-IQR(num_dt[[i]],na.rm = T)
-        q1<-quant[2]
-        q3<-quant[4]
-        outlier<-which(num_dt[[i]] < (q1 - (1.5*iqr)) | num_dt[[i]] > (q3 + (1.5*iqr)))
-        out_list[[i]]<-outlier
-      }
-      out_dt<-dt[unique(unlist(out_list)),]
-      if(nrow(out_dt) >= 1){
-        write.csv(x = out_dt,file = "Outliers.csv",row.names = F)
-      }
-      dlgMessage(message = c("The data containing entries with the outliers has been saved in your working directory",
-                             "Please review the file"))
-      out_l<-unlist(lapply(X = out_list,FUN = length))
-      names(out_l)<-names(out_list)
-      out_lmax<-max(out_l,na.rm = T)
-      if(out_lmax <= 0){
-        dlgMessage(message = "No outliers have been detected in the data",type = "ok")
-      }
-      else if(out_lmax > 0){
-        rem_out<-dlgMessage(message = "Do you want to inspect the outliers in your data?",
-                            type = "yesno")$res
-        if(rem_out == "no"){
-          dlgMessage(message = "Outliers have been retained in the data",type = "ok")
-        }
-        if(rem_out == "yes"){
-          out_act<-dlgList(choices = c("Remove outliers","Replace outliers"),multiple = F,
-                           preselect = "Remove outliers",title = "Outlier action")$res
-          out_ex<-out_l[which(out_l > 0)]
-          names(out_ex)<-names(out_l)[which(out_l > 0)]
-          out_var<-names(out_ex)
-          out_L<-paste(out_ex,"outliers",sep = " ")
-          out_choice<-paste(out_var,out_L,sep = " : ")
-          if(out_act == "Remove outliers"){
-            rem_out_var<-dlgList(choices = c(out_choice,"Do not remove any outliers                            ")
-                                 ,multiple = T,title = "Choose the variables to remove outliers from")$res
-            if("Do not remove any outliers                            " %in% rem_out_var){
-              dlgMessage(message = "Outliers have been retained in the data")
-            }
-            else{
-              rem_dt<-which(out_choice %in% rem_out_var)
-              rem_col<-names(out_ex)[rem_dt]
-              out_ls<-which(names(out_list) %in% rem_col)
-              rem_ID<-vector()
-              for(i in 1:length(out_ls)){
-                rem_id<-out_list[[out_ls[i]]]
-                rem_ID<-c(rem_ID,rem_id)
+              else{
+                rem_dt<-which(out_choice %in% rem_out_var)
+                rem_col<-names(out_ex)[rem_dt]
+                out_ls<-which(names(out_list) %in% rem_col)
+                rem_ID<-vector()
+                for(i in 1:length(out_ls)){
+                  rem_id<-out_list[[out_ls[i]]]
+                  rem_ID<-c(rem_ID,rem_id)
+                }
+                rem_ID<-unique(rem_ID)
+                dt<-dt[-rem_ID,]
+                dlgMessage(message = "The outliers have been removed successfully",type = "ok")
               }
-              rem_ID<-unique(rem_ID)
-              dt<-dt[-rem_ID,]
-              dlgMessage(message = "The outliers have been removed successfully",type = "ok")
+            }
+            if(out_act == "Replace outliers"){
+              for(i in 1:length(out_var)){
+                dt[dt[[out_var[i]]] < (mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T)),
+                   out_var[i] := (mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T))]
+                dt[dt[[out_var[i]]] > (mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T)),
+                   out_var[i] := (mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T))]
+              }
+              dlgMessage(message = "Outliers have been successfully replaced")
             }
           }
-          if(out_act == "Replace outliers"){
-            for(i in 1:length(out_var)){
-              dt[dt[[out_var[i]]] < (quantile(x = dt[[out_var[i]]],na.rm = T)[2] - (1.5*IQR(x = dt[[out_var[i]]],na.rm = T))),
-                 out_var[i] := (quantile(x = dt[[out_var[i]]],na.rm = T)[2] - (1.5*IQR(x = dt[[out_var[i]]],na.rm = T)))]
-              dt[dt[[out_var[i]]] > (quantile(x = dt[[out_var[i]]],na.rm = T)[4] + (1.5*IQR(x = dt[[out_var[i]]],na.rm = T))),
-                 out_var[i] := (quantile(x = dt[[out_var[i]]],na.rm = T)[4] + (1.5*IQR(x = dt[[out_var[i]]],na.rm = T)))]
+        }
+      }
+      else if(out == "Detect outliers using Interquartile range (IQR)"){
+        out_list<-vector(length = ncol(num_dt),mode = "list")
+        names(out_list)<-colnames(num_dt)
+        for(i in 1:ncol(num_dt)){
+          quant<-quantile(num_dt[[i]],na.rm = T)
+          iqr<-IQR(num_dt[[i]],na.rm = T)
+          q1<-quant[2]
+          q3<-quant[4]
+          outlier<-which(num_dt[[i]] < (q1 - (1.5*iqr)) | num_dt[[i]] > (q3 + (1.5*iqr)))
+          out_list[[i]]<-outlier
+        }
+        out_dt<-dt[unique(unlist(out_list)),]
+        if(nrow(out_dt) >= 1){
+          write.csv(x = out_dt,file = "Pre_Proc-Outliers.csv",row.names = F)
+          dlgMessage(message = c("The data containing entries with the outliers has been saved in your working directory",
+                                 "Please review the file before proceeding"))
+        }
+        out_l<-unlist(lapply(X = out_list,FUN = length))
+        names(out_l)<-names(out_list)
+        out_lmax<-max(out_l,na.rm = T)
+        if(out_lmax <= 0){
+          dlgMessage(message = "No outliers have been detected in the data",type = "ok")
+        }
+        else if(out_lmax > 0){
+          rem_out<-dlgMessage(message = c("Do you want to remove/replace the outliers in your data?",
+                                          "To retain the outliers, choose 'No'"),
+                              type = "yesno")$res
+          if(rem_out == "no"){
+            dlgMessage(message = "Outliers have been retained in the data",type = "ok")
+          }
+          if(rem_out == "yes"){
+            out_act<-dlgList(choices = c("Remove outliers","Replace outliers"),multiple = F,
+                             preselect = "Remove outliers",title = "Outlier action")$res
+            out_ex<-out_l[which(out_l > 0)]
+            names(out_ex)<-names(out_l)[which(out_l > 0)]
+            out_var<-names(out_ex)
+            out_L<-paste(out_ex,"outliers",sep = " ")
+            out_choice<-paste(out_var,out_L,sep = " : ")
+            if(out_act == "Remove outliers"){
+              rem_out_var<-dlgList(choices = c(out_choice,"Do not remove any outliers                            ")
+                                   ,multiple = T,title = "Choose the variables to remove outliers from")$res
+              if("Do not remove any outliers                            " %in% rem_out_var){
+                dlgMessage(message = "Outliers have been retained in the data")
+              }
+              else{
+                rem_dt<-which(out_choice %in% rem_out_var)
+                rem_col<-names(out_ex)[rem_dt]
+                out_ls<-which(names(out_list) %in% rem_col)
+                rem_ID<-vector()
+                for(i in 1:length(out_ls)){
+                  rem_id<-out_list[[out_ls[i]]]
+                  rem_ID<-c(rem_ID,rem_id)
+                }
+                rem_ID<-unique(rem_ID)
+                dt<-dt[-rem_ID,]
+                dlgMessage(message = "The outliers have been removed successfully",type = "ok")
+              }
             }
-            dlgMessage(message = "Outliers have been successfully replaced")
+            if(out_act == "Replace outliers"){
+              for(i in 1:length(out_var)){
+                dt[dt[[out_var[i]]] < (quantile(x = dt[[out_var[i]]],na.rm = T)[2] - (1.5*IQR(x = dt[[out_var[i]]],na.rm = T))),
+                   out_var[i] := (quantile(x = dt[[out_var[i]]],na.rm = T)[2] - (1.5*IQR(x = dt[[out_var[i]]],na.rm = T)))]
+                dt[dt[[out_var[i]]] > (quantile(x = dt[[out_var[i]]],na.rm = T)[4] + (1.5*IQR(x = dt[[out_var[i]]],na.rm = T))),
+                   out_var[i] := (quantile(x = dt[[out_var[i]]],na.rm = T)[4] + (1.5*IQR(x = dt[[out_var[i]]],na.rm = T)))]
+              }
+              dlgMessage(message = "Outliers have been successfully replaced")
+            }
           }
         }
       }
     }
   }
-
   ################################-----Variable transformation-----################################
 
   trans<-dlgMessage(message = "Do you want to perform any data transformations?",type = "yesno")$res
@@ -631,7 +629,7 @@ Pre_Proc<-function(dataset){
     }
   }
 
-  write.csv(x = dt,file = "Data_Pre-processed.csv",row.names = F)
+  write.csv(x = dt,file = "Pre_Proc-Data_Pre-processed.csv",row.names = F)
   dlgMessage(message = c("Pre-processing completed","The output dataset has been saved in your working directory")
              ,type = "ok")
   return(dt)
@@ -657,6 +655,7 @@ Auto_EDA<-function(dataset){
   suppressWarnings(if(start == "yes"){
     dlgMessage(message = "Choose the directory where reports and plots will be saved",type = "ok")
     sv_path<-choose.dir()
+    file.create(paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""))
     dt<-as.data.table(dataset)
     tar<-dlgMessage(message = "Does the data contain a target/response variable?",type = "yesno")$res
     if(tar == "yes"){
@@ -716,11 +715,9 @@ Auto_EDA<-function(dataset){
             remarks[i]<-paste(remarks[i],"and leptokurtic",sep = " ")
           }
         },error = function(e){
-          err_dis<-dlgMessage(message = c(paste("Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
-                                          "Do you want to view the error message?"),type = "yesno")$res
-          if(err_dis == "yes"){
-            dlgMessage(message = paste("ERROR:",e,sep = " "),type = "ok")
-          }
+          write(x = paste(paste(Sys.time(),"Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
+                          paste("ERROR:",e$message,sep = " "),sep = "\n"),
+                file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
         })
       }
 
@@ -736,13 +733,13 @@ Auto_EDA<-function(dataset){
         sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
                          title = "Choose output file format")$res
         if(sv_form == ".csv"){
-          write.csv2(x = dt_sum,row.names = F,file = paste(sv_path,"Data_Summary_Num.csv",sep = "\\"))
+          write.csv2(x = dt_sum,row.names = F,file = paste(sv_path,"Auto_EDA-Data_Summary_Num.csv",sep = "\\"))
         }
         else if(sv_form == ".xls"){
-          write.xlsx(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Num.xls",sep = "\\"))
+          write.xlsx(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Data_Summary_Num.xls",sep = "\\"))
         }
         else if(sv_form == ".xlsx"){
-          write.xlsx(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Num.xlsx",sep = "\\"))
+          write.xlsx(x = dt_sum,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Data_Summary_Num.xlsx",sep = "\\"))
         }
 
         dlgMessage(message = "The data summary report has been successfully saved in the chosen directory",type = "ok")
@@ -764,9 +761,9 @@ Auto_EDA<-function(dataset){
           mode_cnt[i]<-tab[which.max(tab)]
           mode_pct[i]<-(mode_cnt[i]/length(dt_cat[[i]]))*100
         },error = function(e){
-
-          dlgMessage(message = paste(paste("Data summary could not be generated for the variable :",colnames(dt_cat)[i],sep = " "),
-                                     paste("ERROR :",e,sep = " "),sep = "\n"),type = "ok")
+          write(x = paste(paste(Sys.time(),"Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
+                          paste("ERROR:",e$message,sep = " "),sep = "\n"),
+                file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
         })
       }
 
@@ -780,13 +777,13 @@ Auto_EDA<-function(dataset){
         sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
                          title = "Choose output file format")$res
         if(sv_form == ".csv"){
-          write.csv2(x = dt_sum_cat,row.names = F,file = paste(sv_path,"Data_Summary_Cat.csv",sep = "\\"))
+          write.csv2(x = dt_sum_cat,row.names = F,file = paste(sv_path,"Auto_EDA-Data_Summary_Cat.csv",sep = "\\"))
         }
         else if(sv_form == ".xls"){
-          write.xlsx(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Cat.xls",sep = "\\"))
+          write.xlsx(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Data_Summary_Cat.xls",sep = "\\"))
         }
         else if(sv_form == ".xlsx"){
-          write.xlsx(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Data_Summary_Cat.xlsx",sep = "\\"))
+          write.xlsx(x = dt_sum_cat,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Data_Summary_Cat.xlsx",sep = "\\"))
         }
 
         dlgMessage(message = "The data summary report has been successfully saved in the chosen directory",type = "ok")
@@ -844,9 +841,11 @@ Auto_EDA<-function(dataset){
             print(sv_plot)
             dev.off()
           },error = function(e){
-            dlgMessage(message = paste(paste("Target vs Predictor plot could not be generated for the variable :",
-                                             colnames(dt_num)[i],sep = " "),paste("ERROR :",e,sep = " "),sep = "\n"),type = "ok")
+            write(x = paste(paste(Sys.time(),"Target vs Predictor plot could not be generated for the variable :",
+                                  colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
+                  file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
             dev_off<-dev.off()
+            file.remove(fl_nm)
           })
         }
 
@@ -876,11 +875,9 @@ Auto_EDA<-function(dataset){
         dlgMessage(message = "Correlation plot has been successfully generated and saved in the chosen directory",
                    type = "ok")
       },error = function(e){
-        err_dis<-dlgMessage(message = c("Correlation plot could not be generated",
-                                        "Do you want to view the error message?"),type = "yesno")$res
-        if(err_dis == "yes"){
-          dlgMessage(message = paste("ERROR:",e,sep = "\n"),type = "ok")
-        }
+        write(x = paste(paste(Sys.time(),"Correlation plot could not be generated",sep = " "),
+                        paste("ERROR:",e$message,sep = " "),sep = "\n"),
+              file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
         dev_off<-dev.off()
         file.remove(paste(sv_path,"\\Correlation_Plot.jpeg",sep = ""))
       })
@@ -907,11 +904,9 @@ Auto_EDA<-function(dataset){
         dlgMessage(message = "Box and Whisker plot(s) have been successfully generated and saved in the chosen directory",
                    type = "ok")
       },error = function(e){
-        err_dis<-dlgMessage(message = c("One or more Boxplots could not be generated",
-                                        "Do you want to view the error messages?"),type = "yesno")$res
-        if(err_dis == "yes"){
-          dlgMessage(message = paste("ERROR:",e,"\n"),type = "ok")
-        }
+        write(x = paste(paste(Sys.time(),"One or more Boxplots could not be generated",sep = " "),
+                        paste("ERROR:",e$message," "),sep = "\n"),file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),
+              append = TRUE)
         dev_off<-dev.off()
         file.remove(paste(sv_path,"\\Boxplot(",min(box_col)))
       })
@@ -927,12 +922,9 @@ Auto_EDA<-function(dataset){
           desc<-descdist(data = dt_num[[i]],graph = T)
           dev.off()
         },error = function(e){
-          err_dis<-dlgMessage(message = c(paste("Distribution description plot could not be generated for the variable :",
-                                                colnames(dt_num)[i],sep = " "),"Do you want to view the error message?"),
-                              type = "yesno")$res
-          if(err_dis == "yes"){
-            dlgMessage(message = paste("ERROR:",e,sep = " "),type = "ok")
-          }
+          write(x = paste(paste(Sys.time(),"Distribution description plot could not be generated for the variable :",
+                                colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
+                file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
           dev_off<-dev.off()
           file.remove(fl_nm)
         })
@@ -984,11 +976,9 @@ Auto_EDA<-function(dataset){
             plot(fitdist(data = dt_num[[i]],distr = fits_plot[j]))
             dev.off()
           },error = function(e){
-            # err_dis<-dlgMessage(message = c(paste("Fitted distribution (",fits_plot[j],") could not be generated for the variable :",colnames(dt_num)[i],sep = ""),
-            #                                 "Do you want to view the error message?"),type = "yesno")$res
-            # if(err_dis == "yes"){
-            #   dlgMessage(message = paste("ERROR:",e,sep = " "),type = "ok")
-            # }
+            write(x = paste(paste(Sys.time(),"Fitted distribution (",fits_plot[j],") could not be generated for the variable :",
+                                  colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
+                  file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
             dev_off<-dev.off()
             file.remove(fl_nm)
           })
@@ -1007,13 +997,14 @@ Auto_EDA<-function(dataset){
           fl_nm<-paste(sv_path,"\\Frequency plot(",colnm[i],").jpeg",sep = "")
           jpeg(filename = fl_nm,quality = 100)
           freq_plot<-ggplot(data = dt_cat) + geom_bar(mapping = aes(dt_cat[[i]]),fill = "blue") +
-            ggtitle(label = "Frequency Plot",subtitle = colnames(dt_cat)[i]) +
+            ggtitle(label = "Frequency Plot",subtitle = colnames(dt_cat)[i]) + xlab(label = colnames(dt_cat)[i]) +
             theme(legend.position = "none")
           print(freq_plot)
           dev.off()
         },error = function(e){
-          dlgMessage(message = paste(paste("Frequency plot could not be generated for the variable :",colnames(dt_cat)[i],sep = ""),
-                                     paste("ERROR :",e,sep = ""),sep = "\n"),type = "ok")
+          write(x = paste(paste(Sys.time(),"Frequency plot could not be generated for the variable :",colnames(dt_cat)[i],sep = " "),
+                          paste("ERROR:",e$message,sep = " "),sep = "\n"),file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),
+                append = TRUE)
           dev_off<-dev.off()
           file.remove(fl_nm)
         })
@@ -1023,7 +1014,7 @@ Auto_EDA<-function(dataset){
                  type = "ok")
     }
 
-    dlgMessage(message = c("EDA has been completed & plots/reports have been generated and saved",
+    dlgMessage(message = c("EDA has been completed & plots/reports/error logs have been generated and saved",
                            "Please check the following path to view them :",sv_path),type = "ok")
   }
   else {
