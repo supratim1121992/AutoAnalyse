@@ -3,11 +3,16 @@
 # Class Imbalance correction
 # Cramer's V report
 # Interclass Correlation Coefficient report
-
 # Dimensionality reduction and factor analysis, variable importance
 # Duplicates check
+
 # Print best fit and present options accordingly
 # Date custom input
+# Time series : Auto read time/date variable
+# Memory management
+# Resolve error print through trycatch
+
+## Analysis summary report generation -- Major upgrade
 
 # Transformations(log, dummification) -- Done
 # Normalisation and standardisation -- Done
@@ -236,9 +241,9 @@ Pre_Proc<-function(dataset){
       num_cls<-which(dt_cls %in% c("numeric","integer"))
       num_dt<-dt[,num_cls,with = F]
       colnames(num_dt)<-colnames(dt)[num_cls]
-      out<-dlgList(choices = c("Detect outliers using standard deviation","Detect outliers using Interquartile range (IQR)"),
-                   preselect = "Detect outliers using standard deviation",multiple = F,title = "Outlier detection")$res
-      if(out == "Detect outliers using standard deviation"){
+      out<-dlgList(choices = c("Detect outliers using standard deviation (6 sigma)","Detect outliers using Interquartile range (IQR)"),
+                   preselect = "Detect outliers using standard deviation (6 sigma)",multiple = F,title = "Outlier detection")$res
+      if(out == "Detect outliers using standard deviation (6 sigma)"){
         out_list<-vector(length = ncol(num_dt),mode = "list")
         names(out_list)<-colnames(num_dt)
         for(i in 1:ncol(num_dt)){
@@ -1017,6 +1022,10 @@ Auto_EDA<-function(dataset){
 
     dlgMessage(message = c("EDA has been completed & plots/reports/error logs have been generated and saved",
                            "Please check the following path to view them :",sv_path),type = "ok")
+    read<-readLines(con = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),n = 5)
+    if(length(read) <= 0){
+      file.remove(paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""))
+    }
   }
   else {
     dlgMessage(message = "You can use the Pre_Proc function in AutoAnalyse for data pre-processing",type = "ok")
