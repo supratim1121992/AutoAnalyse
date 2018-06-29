@@ -1062,7 +1062,7 @@ Auto_EDA<-function(dataset){
                            "Please check the following path to view them :",sv_path),type = "ok")
     read<-readLines(con = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),n = 5)
     if(length(read) <= 0){
-      file.remove(paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""))
+      invisible(file.remove(paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = "")))
     }
   }
   else {
