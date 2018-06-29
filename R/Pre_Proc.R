@@ -2,6 +2,7 @@
 
 # Class Imbalance correction
 # Cramer's V report
+# Mosaic plot for Visualisation of Cramer's V
 # Interclass Correlation Coefficient report
 # Dimensionality reduction and factor analysis, variable importance
 # Duplicates check
@@ -10,7 +11,6 @@
 # Date custom input
 # Time series : Auto read time/date variable
 # Memory management
-# Resolve error print through trycatch
 
 ## Analysis summary report generation -- Major upgrade
 
@@ -20,6 +20,7 @@
 # Outlier imputation -- Done
 # Logs for error handling -- Done
 # Overwrite file or save -- Done
+# Resolve error print through trycatch -- Done
 
 
 #' Pre-process dataset
@@ -655,6 +656,7 @@ Auto_EDA<-function(dataset){
   require(ggplot2)
   require(corrplot)
   require(fitdistrplus)
+  require(DescTools)
 
   start<-dlgMessage(message = c("It is highly advised to pre-process data using the 'Pre_Proc' function in this package before EDA",
                                 "Do you want to continue?"),type = "yesno")$res
@@ -721,6 +723,7 @@ Auto_EDA<-function(dataset){
             remarks[i]<-paste(remarks[i],"and leptokurtic",sep = " ")
           }
         },error = function(e){
+          invisible(e)
           write(x = paste(paste(Sys.time(),"Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
                           paste("ERROR:",e$message,sep = " "),sep = "\n"),
                 file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -767,6 +770,7 @@ Auto_EDA<-function(dataset){
           mode_cnt[i]<-tab[which.max(tab)]
           mode_pct[i]<-(mode_cnt[i]/length(dt_cat[[i]]))*100
         },error = function(e){
+          invisible(e)
           write(x = paste(paste(Sys.time(),"Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
                           paste("ERROR:",e$message,sep = " "),sep = "\n"),
                 file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -798,6 +802,34 @@ Auto_EDA<-function(dataset){
     else{
       dlgMessage(message = c("There are no character/factor variables in the data",
                              "Data summary will be provided only for the numeric/integer variables"),type = "ok")
+    }
+
+    if(ncol(dt_cat) > 0){
+      cv<-dlgMessage(message = "Do you want to calculate Cramer's V for the categorical variables?",
+                     type = "yesno")$res
+      if(cv == "yes"){
+        cv_mat<-PairApply(x = dt_cat,FUN = CramerV,symmetric = TRUE)
+        var_nm<-rownames(cv_mat)
+        cv_tab<-as.data.table(cbind("Variable" = var_nm,cv_mat))
+        print(cv_tab)
+        sv_cv<-dlgMessage(message = c("The Cramer's V for the categorical variables has been printed in the console",
+                                       "Do you want to save it as a report?"),type = "yesno")$res
+        if(sv_cv == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = cv_tab,row.names = F,file = paste(sv_path,"Auto_EDA-Cramer's_V.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = cv_tab,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Cramer's_V.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = cv_tab,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Cramer's_V.xlsx",sep = "\\"))
+          }
+
+          dlgMessage(message = "The Cramer's V report has been successfully saved in the chosen directory",type = "ok")
+        }
+      }
     }
 
     ################################-----Plot generation-----################################
@@ -847,6 +879,7 @@ Auto_EDA<-function(dataset){
             print(sv_plot)
             dev.off()
           },error = function(e){
+            invisible(e)
             write(x = paste(paste(Sys.time(),"Target vs Predictor plot could not be generated for the variable :",
                                   colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
                   file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -881,6 +914,7 @@ Auto_EDA<-function(dataset){
         dlgMessage(message = "Correlation plot has been successfully generated and saved in the chosen directory",
                    type = "ok")
       },error = function(e){
+        invisible(e)
         write(x = paste(paste(Sys.time(),"Correlation plot could not be generated",sep = " "),
                         paste("ERROR:",e$message,sep = " "),sep = "\n"),
               file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -910,6 +944,7 @@ Auto_EDA<-function(dataset){
         dlgMessage(message = "Box and Whisker plot(s) have been successfully generated and saved in the chosen directory",
                    type = "ok")
       },error = function(e){
+        invisible(e)
         write(x = paste(paste(Sys.time(),"One or more Boxplots could not be generated",sep = " "),
                         paste("ERROR:",e$message," "),sep = "\n"),file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),
               append = TRUE)
@@ -928,6 +963,7 @@ Auto_EDA<-function(dataset){
           desc<-descdist(data = dt_num[[i]],graph = T)
           dev.off()
         },error = function(e){
+          invisible(e)
           write(x = paste(paste(Sys.time(),"Distribution description plot could not be generated for the variable :",
                                 colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
                 file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -982,6 +1018,7 @@ Auto_EDA<-function(dataset){
             plot(fitdist(data = dt_num[[i]],distr = fits_plot[j]))
             dev.off()
           },error = function(e){
+            invisible(e)
             write(x = paste(paste(Sys.time(),"Fitted distribution (",fits_plot[j],") could not be generated for the variable :",
                                   colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
                   file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -1008,6 +1045,7 @@ Auto_EDA<-function(dataset){
           print(freq_plot)
           dev.off()
         },error = function(e){
+          invisible(e)
           write(x = paste(paste(Sys.time(),"Frequency plot could not be generated for the variable :",colnames(dt_cat)[i],sep = " "),
                           paste("ERROR:",e$message,sep = " "),sep = "\n"),file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),
                 append = TRUE)
