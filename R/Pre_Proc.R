@@ -858,7 +858,7 @@ Auto_EDA<-function(dataset){
             write.xlsx(x = dt_icc,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-ICC.xlsx",sep = "\\"))
           }
 
-          dlgMessage(message = "The Cramer's V report has been successfully saved in the chosen directory",type = "ok")
+          dlgMessage(message = "The ICC report has been successfully saved in the chosen directory",type = "ok")
         }
       }
     }
