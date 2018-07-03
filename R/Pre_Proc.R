@@ -723,7 +723,6 @@ Auto_EDA<-function(dataset){
             remarks[i]<-paste(remarks[i],"and leptokurtic",sep = " ")
           }
         },error = function(e){
-          invisible(e)
           write(x = paste(paste(Sys.time(),"Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
                           paste("ERROR:",e$message,sep = " "),sep = "\n"),
                 file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -770,7 +769,6 @@ Auto_EDA<-function(dataset){
           mode_cnt[i]<-tab[which.max(tab)]
           mode_pct[i]<-(mode_cnt[i]/length(dt_cat[[i]]))*100
         },error = function(e){
-          invisible(e)
           write(x = paste(paste(Sys.time(),"Data summary could not be generated for the variable :",colnames(dt_num)[i],sep = " "),
                           paste("ERROR:",e$message,sep = " "),sep = "\n"),
                 file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -879,7 +877,6 @@ Auto_EDA<-function(dataset){
             print(sv_plot)
             dev.off()
           },error = function(e){
-            invisible(e)
             write(x = paste(paste(Sys.time(),"Target vs Predictor plot could not be generated for the variable :",
                                   colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
                   file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -914,7 +911,6 @@ Auto_EDA<-function(dataset){
         dlgMessage(message = "Correlation plot has been successfully generated and saved in the chosen directory",
                    type = "ok")
       },error = function(e){
-        invisible(e)
         write(x = paste(paste(Sys.time(),"Correlation plot could not be generated",sep = " "),
                         paste("ERROR:",e$message,sep = " "),sep = "\n"),
               file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -944,7 +940,6 @@ Auto_EDA<-function(dataset){
         dlgMessage(message = "Box and Whisker plot(s) have been successfully generated and saved in the chosen directory",
                    type = "ok")
       },error = function(e){
-        invisible(e)
         write(x = paste(paste(Sys.time(),"One or more Boxplots could not be generated",sep = " "),
                         paste("ERROR:",e$message," "),sep = "\n"),file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),
               append = TRUE)
@@ -963,7 +958,6 @@ Auto_EDA<-function(dataset){
           desc<-descdist(data = dt_num[[i]],graph = T)
           dev.off()
         },error = function(e){
-          invisible(e)
           write(x = paste(paste(Sys.time(),"Distribution description plot could not be generated for the variable :",
                                 colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
                 file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -1010,6 +1004,7 @@ Auto_EDA<-function(dataset){
       }
       colnm<-gsub(pattern = "\\%",replacement = "pct",x = colnames(dt_num))
       err_fit<-err_fit_var<-vector()
+      sink(file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = T)
       for(i in 1:ncol(dt_num)){
         for(j in 1:length(fits_plot)){
           tryCatch({
@@ -1018,7 +1013,6 @@ Auto_EDA<-function(dataset){
             plot(fitdist(data = dt_num[[i]],distr = fits_plot[j]))
             dev.off()
           },error = function(e){
-            invisible(e)
             write(x = paste(paste(Sys.time(),"Fitted distribution (",fits_plot[j],") could not be generated for the variable :",
                                   colnames(dt_num)[i],sep = " "),paste("ERROR:",e$message,sep = " "),sep = "\n"),
                   file = paste(sv_path,"\\Auto_EDA-Error_log.txt",sep = ""),append = TRUE)
@@ -1027,6 +1021,7 @@ Auto_EDA<-function(dataset){
           })
         }
       }
+      sink()
 
       dlgMessage(message = "Fitted distribution plots have been successfully generated and saved in the chosen directory",
                  type = "ok")
