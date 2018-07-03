@@ -657,6 +657,7 @@ Auto_EDA<-function(dataset){
   require(corrplot)
   require(fitdistrplus)
   require(DescTools)
+  require(ICC)
 
   start<-dlgMessage(message = c("It is highly advised to pre-process data using the 'Pre_Proc' function in this package before EDA",
                                 "Do you want to continue?"),type = "yesno")$res
@@ -823,6 +824,38 @@ Auto_EDA<-function(dataset){
           }
           else if(sv_form == ".xlsx"){
             write.xlsx(x = cv_tab,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Cramer's_V.xlsx",sep = "\\"))
+          }
+
+          dlgMessage(message = "The Cramer's V report has been successfully saved in the chosen directory",type = "ok")
+        }
+      }
+    }
+
+    if(length(target) > 0 && dt_cls[target] %in% c("numeric","integer")){
+      icc<-dlgMessage(message = c("Do you want to calculate the Interclass Correlation Coefficients?",
+                                  "NOTE : The ICC is calculated for each categorical variable with respect to the target"),
+                      type = "yesno")$res
+      if(icc == "yes"){
+        feats<-colnames(dt_cat)
+        icc_val<-vector()
+        for(i in 1:length(feats)){
+          icc_val[i]<-ICCbare(x = dt_cat[[i]],y = dt[[target]])
+        }
+        dt_icc<-data.table("Variable" = feats,"ICC" = icc_val)
+        print(dt_icc)
+        sv_icc<-dlgMessage(message = c("The ICC for each variable have been printed in the console",
+                                      "Do you want to save it as a report?"),type = "yesno")$res
+        if(sv_icc == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = dt_icc,row.names = F,file = paste(sv_path,"Auto_EDA-ICC.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = dt_icc,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-ICC.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = dt_icc,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-ICC.xlsx",sep = "\\"))
           }
 
           dlgMessage(message = "The Cramer's V report has been successfully saved in the chosen directory",type = "ok")
