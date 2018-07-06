@@ -1,16 +1,13 @@
 # Implement (Pending):
 
 # Class Imbalance correction
-# Cramer's V report
-# Mosaic plot for Visualisation of Cramer's V
-# Interclass Correlation Coefficient report
 # Dimensionality reduction and factor analysis, variable importance
-# Duplicates check
 
 # Print best fit and present options accordingly
 # Date custom input
 # Time series : Auto read time/date variable
 # Memory management
+# Transformation suggestions
 
 ## Analysis summary report generation -- Major upgrade
 
@@ -21,6 +18,9 @@
 # Logs for error handling -- Done
 # Overwrite file or save -- Done
 # Resolve error print through trycatch -- Done
+# Cramer's V report -- Done
+# Interclass Correlation Coefficient report -- Done
+# Duplicates check -- Done
 
 
 #' Pre-process dataset
@@ -42,10 +42,16 @@ Pre_Proc<-function(dataset){
   setwd(choose.dir())
   col_no<-ncol(dt)
   row_no<-nrow(dt)
-  dt_cls<-dt[,lapply(X = .SD,FUN = function(x){
-    class(x)
-  }),.SDcols = colnames(dt)]
-  cls<-as.character(dt_cls)
+  cls<-character()
+  for(i in 1:ncol(dt)){
+    int_cls<-class(dt[[i]])
+    if(length(int_cls) > 1){
+      cls[i]<-paste(int_cls,collapse = " ")
+    }
+    else {
+      cls[i]<-int_cls
+    }
+  }
   cls_unq<-unique(cls)
   cls_info<-vector()
   for(i in 1:length(cls_unq)){
@@ -54,7 +60,8 @@ Pre_Proc<-function(dataset){
   }
 
   dlgMessage(message = c("The dataset has been successfully read",paste("Number of variables",col_no,sep = ": "),
-                         paste("Number of observations",row_no,sep = ": "),cls_info),type = "ok")
+                         paste("Number of observations",row_no,sep = ": ")),type = "ok")
+  dlgMessage(message = c("Variable Summary:",cls_info),type = "ok")
   col_names<-colnames(dt)
   struc<-dlgMessage(message = "Do you want to view the data structure?",type = "yesno")$res
   if(struc == "yes"){
@@ -112,10 +119,45 @@ Pre_Proc<-function(dataset){
     }
   }
 
+  ################################-----Duplicates check-----################################
+
+  dup<-which(duplicated(x = dt) == T)
+  if(length(dup) > 0){
+    dup_check<-dlgMessage(message = c("The input data has duplicated entries","Would you like to inpect them further?"),
+                          type = "yesno")$res
+    if(dup_check == "yes"){
+      write.csv(x = dt[dup,],file = "Pre_Proc-Duplicates.csv",row.names = F,col.names = T)
+      dlgMessage(message = "The duplicated data has been saved in your working directory",type = "ok")
+      dup_rem<-dlgMessage(message = "Do you want to remove the duplicates in your data?",type = "yesno")$res
+      if(dup_rem == "yes"){
+        dup_rem2<-dlgMessage(message = c(paste("A total of",length(dup),"observations/rows will be removed from your data",sep = " "),
+                                         "Are you sure you want to remove them?"),type = "yesno")$res
+        if(dup_rem2 == "yes"){
+          dt<-dt[-dup,]
+          dlgMessage(message = "The duplicated entries in the data have been successfully removed",type = "'ok")
+        }
+      }
+    }
+    else {
+      dlgMessage(message = "The duplicates in the data have been retained",type = "ok")
+    }
+  }
+  else {
+    dlgMessage(message = "The input data has no duplicated entries",type = "ok")
+  }
+
   ################################-----Variable conversions-----################################
 
-  dt_cls<-as.data.table(lapply(dt,class))
-  cls<-as.character(dt_cls)
+  cls<-character()
+  for(i in 1:ncol(dt)){
+    int_cls<-class(dt[[i]])
+    if(length(int_cls) > 1){
+      cls[i]<-paste(int_cls,collapse = " ")
+    }
+    else {
+      cls[i]<-int_cls
+    }
+  }
   if("character" %in% cls){
     char<-which(cls == "character")
     char_no<-length(char)
@@ -216,10 +258,16 @@ Pre_Proc<-function(dataset){
         }
       }
 
-      dt_cls<-dt[,lapply(X = .SD,FUN = function(x){
-        class(x)
-      }),.SDcols = colnames(dt)]
-      cls<-as.character(dt_cls)
+      cls<-character()
+      for(i in 1:ncol(dt)){
+        int_cls<-class(dt[[i]])
+        if(length(int_cls) > 1){
+          cls[i]<-paste(int_cls,collapse = " ")
+        }
+        else {
+          cls[i]<-int_cls
+        }
+      }
       if("character" %in% cls){
         char<-which(cls == "character")
         char_no<-length(char)
@@ -237,9 +285,17 @@ Pre_Proc<-function(dataset){
   if("numeric" %in% cls | "integer" %in% cls){
     perf_out<-dlgMessage(message = "Do you want to perform Outlier Analysis?",type = "yesno")$res
     if(perf_out == "yes"){
-      dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-      dt_cls<-as.character(dt_cls)
-      num_cls<-which(dt_cls %in% c("numeric","integer"))
+      cls<-character()
+      for(i in 1:ncol(dt)){
+        int_cls<-class(dt[[i]])
+        if(length(int_cls) > 1){
+          cls[i]<-paste(int_cls,collapse = " ")
+        }
+        else {
+          cls[i]<-int_cls
+        }
+      }
+      num_cls<-which(cls %in% c("numeric","integer"))
       num_dt<-dt[,num_cls,with = F]
       colnames(num_dt)<-colnames(dt)[num_cls]
       out<-dlgList(choices = c("Detect outliers using standard deviation (6 sigma)","Detect outliers using Interquartile range (IQR)"),
@@ -387,12 +443,22 @@ Pre_Proc<-function(dataset){
 
   trans<-dlgMessage(message = "Do you want to perform any data transformations?",type = "yesno")$res
   if(trans == "yes"){
-    dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-    dt_cls<-as.character(dt_cls)
-    num_cls<-which(dt_cls %in% c("numeric","integer"))
+    # dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
+    # dt_cls<-as.character(dt_cls)
+    cls<-character()
+    for(i in 1:ncol(dt)){
+      int_cls<-class(dt[[i]])
+      if(length(int_cls) > 1){
+        cls[i]<-paste(int_cls,collapse = " ")
+      }
+      else {
+        cls[i]<-int_cls
+      }
+    }
+    num_cls<-which(cls %in% c("numeric","integer"))
     num_dt<-dt[,num_cls,with = F]
     colnames(num_dt)<-colnames(dt)[num_cls]
-    cat_cls<-which(dt_cls %in% c("numeric","integer") == F)
+    cat_cls<-which(cls %in% c("numeric","integer") == F)
     cls_dt<-dt[,cat_cls,with = F]
     colnames(cls_dt)<-colnames(dt)[cat_cls]
     t_choice<-vector()
@@ -441,6 +507,9 @@ Pre_Proc<-function(dataset){
           dum<-dummy(x = t_dum[i],data = dt,sep = "-")
           if(pre <= 0){
             dt<-as.data.table(cbind(dum,dt[,post:ncol(dt),with = F]))
+          }
+          else if(post > ncol(dt)){
+            dt<-as.data.table(cbind(dt[,1:pre,with = F],dum))
           }
           else{
             dt<-as.data.table(cbind(dt[,1:pre,with = F],dum,dt[,post:ncol(dt),with = F]))
@@ -571,25 +640,40 @@ Pre_Proc<-function(dataset){
         dlgMessage(message = "Imputation completed",type = "ok")
       }
       else if(imp_meth == "knnImputation"){
-        imp_cl<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-        imp_cl<-as.character(imp_cl)
-        if("character" %in% imp_cl){
+        imp_cl<-character()
+        for(i in 1:ncol(dt)){
+          int_cls<-class(dt[[i]])
+          if(length(int_cls) > 1){
+            imp_cl[i]<-paste(int_cls,collapse = " ")
+          }
+          else {
+            imp_cl[i]<-int_cls
+          }
+        }
+        if("character" %in% imp_cl | "factor" %in% imp_cl | "logical" %in% imp_cl){
           col_names<-colnames(dt)
-          ch_cl<-which(imp_cl == "character")
-          num_cl<-which(imp_cl %in% c("numeric","integer","factor","logical"))
+          ch_cl<-which(imp_cl %in% c("numeric","integer") == F)
+          num_cl<-which(imp_cl %in% c("numeric","integer"))
           ch_l<-length(ch_cl)
           dlgMessage(message = c("knn will only impute missing values for the numerical data",
                                  "Use CentralImputation for imputing characters"),type = "ok")
           dt_num<-dt[,num_cl,with = F]
           dt_ch<-dt[,ch_cl,with = F]
-          k_val<-as.integer(dlgInput(message = "Enter the number of nearest neighbors (k) to consider",default = 10)$res)
-          k_meth<-dlgList(choices = c("weighAvg","median"),preselect = "weighAvg",multiple = F,title = "Choose knn method")$res
-          dlgMessage(message = c("Imputing missing values using knn","Please wait as this might take a while"),
-                     type = "ok")
-          dt_imp<-knnImputation(data = dt_num,k = k_val,meth = k_meth,scale = T)
-          dt<-as.data.table(cbind(dt_imp,dt_ch))
-          dt<-dt[,col_names,with = F]
-          dlgMessage(message = "Imputation completed",type = "ok")
+          if(nrow(dt_num) <= 0 | ncol(dt_num) <= 0){
+            dlgMessage(message = c("There are no more numerical variables with missing values",
+                                   "Please use CentralImputation to impute the missing values in the categorical variables"),
+                       type = "ok")
+          }
+          else {
+            k_val<-as.integer(dlgInput(message = "Enter the number of nearest neighbors (k) to consider",default = 10)$res)
+            k_meth<-dlgList(choices = c("weighAvg","median"),preselect = "weighAvg",multiple = F,title = "Choose knn method")$res
+            dlgMessage(message = c("Imputing missing values using knn","Please wait as this might take a while"),
+                       type = "ok")
+            dt_imp<-knnImputation(data = dt_num,k = k_val,meth = k_meth,scale = T)
+            dt<-as.data.table(cbind(dt_imp,dt_ch))
+            dt<-dt[,col_names,with = F]
+            dlgMessage(message = "Imputation completed",type = "ok")
+          }
         }
         else {
           k_val<-as.integer(dlgInput(message = "Enter the number of nearest neighbors (k) to consider",default = 10)$res)
@@ -601,11 +685,19 @@ Pre_Proc<-function(dataset){
         }
       }
       else if(imp_meth == "Impute with Mean"){
-        imp_cl<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-        imp_cl<-as.character(imp_cl)
+        imp_cl<-character()
+        for(i in 1:ncol(dt)){
+          int_cls<-class(dt[[i]])
+          if(length(int_cls) > 1){
+            imp_cl[i]<-paste(int_cls,collapse = " ")
+          }
+          else {
+            imp_cl[i]<-int_cls
+          }
+        }
         if("character" %in% imp_cl | "factor" %in% imp_cl | "logical" %in% imp_cl){
           col_names<-colnames(dt)
-          ch_cl<-which(imp_cl %in% c("character","factor","logical"))
+          ch_cl<-which(imp_cl %in% c("numeric","integer") == F)
           ch_l<-length(ch_cl)
           dlgMessage(message = c("Imputation with Mean will only impute missing values for the numerical data",
                                  "Use CentralImputation or knnImputation to impute others"),type = "ok")
@@ -614,11 +706,18 @@ Pre_Proc<-function(dataset){
           Impute_Mean<-function(x){
             x[which(is.na(x) == T)]<-mean(x,na.rm = T)
           }
-          dlgMessage(message = "Imputing missing values with the mean value",type = "ok")
-          dt_imp<-dt_num[,lapply(X = .SD,FUN = Impute_Mean),.SDcols = colnames(dt_num)]
-          dt<-as.data.table(cbind(dt_imp,dt_ch))
-          dt<-dt[,col_names,with = F]
-          dlgMessage(message = "Imputation completed",type = "ok")
+          if(nrow(dt_num) <= 0 | ncol(dt_num) <= 0){
+            dlgMessage(message = c("There are no more numerical variables with missing values",
+                                   "Please use CentralImputation to impute the missing values in the categorical variables"),
+                       type = "ok")
+          }
+          else {
+            dlgMessage(message = "Imputing missing values with the mean value",type = "ok")
+            dt_imp<-dt_num[,lapply(X = .SD,FUN = Impute_Mean),.SDcols = colnames(dt_num)]
+            dt<-as.data.table(cbind(dt_imp,dt_ch))
+            dt<-dt[,col_names,with = F]
+            dlgMessage(message = "Imputation completed",type = "ok")
+          }
         }
         else {
           Impute_Mean<-function(x){
