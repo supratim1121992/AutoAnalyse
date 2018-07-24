@@ -1,13 +1,9 @@
 # Implement (Pending):
 
-# Class Imbalance correction
-# Dimensionality reduction and factor analysis, variable importance
-
-# Print best fit and present options accordingly
-# Date custom input
+# Print best fit and present options accordingly -- Not possible with fitdistrplus (Will need explicit function)
 # Time series : Auto read time/date variable
-# Memory management
-# Transformation suggestions
+# Memory management -- parallel package explored but can only be incorporated for cases where data subsets are unrelated
+# Transformation suggestions -- Explicit function needed
 
 ## Analysis summary report generation -- Major upgrade
 
@@ -21,6 +17,11 @@
 # Cramer's V report -- Done
 # Interclass Correlation Coefficient report -- Done
 # Duplicates check -- Done
+# Dimensionality reduction -- Done
+# Class Imbalance correction -- Done (Binary only)
+# Regsubsets -- Done
+# Partial Least Squares -- Done
+# VIF check -- Done
 
 
 #' Pre-process dataset
@@ -35,6 +36,7 @@ Pre_Proc<-function(dataset){
   require(svDialogs)
   require(DMwR)
   require(dummies)
+  require(ROSE)
 
   dt<-as.data.table(dataset)
   dlgMessage(message = c("Please choose your working directory",
@@ -134,7 +136,7 @@ Pre_Proc<-function(dataset){
                                          "Are you sure you want to remove them?"),type = "yesno")$res
         if(dup_rem2 == "yes"){
           dt<-dt[-dup,]
-          dlgMessage(message = "The duplicated entries in the data have been successfully removed",type = "'ok")
+          dlgMessage(message = "The duplicated entries in the data have been successfully removed",type = "ok")
         }
       }
     }
@@ -443,8 +445,6 @@ Pre_Proc<-function(dataset){
 
   trans<-dlgMessage(message = "Do you want to perform any data transformations?",type = "yesno")$res
   if(trans == "yes"){
-    # dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-    # dt_cls<-as.character(dt_cls)
     cls<-character()
     for(i in 1:ncol(dt)){
       int_cls<-class(dt[[i]])
@@ -700,7 +700,7 @@ Pre_Proc<-function(dataset){
           ch_cl<-which(imp_cl %in% c("numeric","integer") == F)
           ch_l<-length(ch_cl)
           dlgMessage(message = c("Imputation with Mean will only impute missing values for the numerical data",
-                                 "Use CentralImputation or knnImputation to impute others"),type = "ok")
+                                 "Use CentralImputation to impute missing values in the categorical variables"),type = "ok")
           dt_num<-dt[,-ch_cl,with = F]
           dt_ch<-dt[,ch_cl,with = F]
           Impute_Mean<-function(x){
@@ -735,11 +735,78 @@ Pre_Proc<-function(dataset){
     }
   }
 
-  write.csv(x = dt,file = "Pre_Proc-Data_Pre-processed.csv",row.names = F)
-  dlgMessage(message = c("Pre-processing completed","The output dataset has been saved in your working directory")
-             ,type = "ok")
+  ################################-----Class Imbalance Correction-----################################
+
+  tar<-dlgMessage(message = "Does the data contain a target/response variable?",type = "yesno")$res
+  if(tar == "yes"){
+    target<-dlgList(choices = colnames(dt),multiple = F,title = "Choose the target/response variable")$res
+    target<-which(colnames(dt) == target)
+    pred_type<-dlgList(choices = c("Regression                    ","Classification"),multiple = F,title = "Predictive Analysis Type")$res
+  }
+  else if(tar == "no"){
+    target<-vector()
+    pred_type<-"None"
+  }
+
+  if(length(target) > 0 && pred_type == "Classification" && length(unique(dt[[target]])) <= 2){
+    tar_tab<-table(dt[[target]])
+    major<-names(which.max(tar_tab))
+    major_cnt<-max(tar_tab)
+    minor<-names(which.min(tar_tab))
+    minor_cnt<-min(tar_tab)
+    tar_prop<-major_cnt/minor_cnt
+    if(major_cnt == minor_cnt){
+      dlgMessage(message = "The input dataset has no class imbalance",type = "ok")
+      fix_imb<-"no"
+    }
+    else if(major_cnt != minor_cnt && tar_prop < 3) {
+      fix_imb<-dlgMessage(message = c(paste(major,"is the major target class. Number of occurences:",major_cnt,sep = " "),
+                             paste(minor,"is the minor target class. Number of occurences:",minor_cnt,sep = " "),
+                             "Do you want to fix the class imbalance?"),type = "yesno")$res
+    }
+    else if(major_cnt != minor_cnt && tar_prop >= 3){
+      fix_imb<-dlgMessage(message = c(paste(major,"is the major target class. Number of occurences:",major_cnt,sep = " "),
+                                      paste(minor,"is the minor target class. Number of occurences:",minor_cnt,sep = " "),
+                                      "Do you want to fix the class imbalance?",
+                                      "NOTE: Major class imbalance has been observed in your dataset"),type = "yesno")$res
+    }
+    if(fix_imb == "yes"){
+      rose_form<-as.formula(paste(colnames(dt)[target],"~ .",sep = " "))
+      dt<-as.data.table(ROSE(formula = rose_form,data = dt)$data)
+      dlgMessage(message = "The class imbalance in the data has been fixed successfully",type = "ok")
+    }
+  }
+  else if(length(target) > 0 && pred_type == "Classification" && length(unique(dt[[target]])) > 2) {
+    dlgMessage(message = c("The target variable contains more than 2 classes",
+                           "Class Imbalance correction will be skipped"),type = "ok")
+  }
+  else if(length(target) > 0 && pred_type != "Classification"){
+    dlgMessage(message = c("The dataset is for Regression analysis",
+                           "Class Imbalance correction will be skipped"),type = "ok")
+  }
+
+  ################################-----Output-----################################
+
+  sv_pre<-dlgMessage(message = c("Pre-processing completed","Do you want to save the pre-processed data?"),
+             type = "yesno")$res
+  if(sv_pre == "yes"){
+    sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                     title = "Choose output file format")$res
+    if(sv_form == ".csv"){
+      write.csv2(x = dt,row.names = F,file = "Pre_Proc-Data_Pre-processed.csv")
+    }
+    else if(sv_form == ".xls"){
+      write.xlsx(x = dt,col.names = T,row.names = F,file = "Pre_Proc-Data_Pre-processed.xls")
+    }
+    else if(sv_form == ".xlsx"){
+      write.xlsx(x = dt,col.names = T,row.names = F,file = "Pre_Proc-Data_Pre-processed.xlsx")
+    }
+
+    dlgMessage(message = "The output dataset has been saved in your working directory",type = "ok")
+  }
   return(dt)
 }
+
 
 #' Perform Exploratory Data Analysis
 #'
@@ -753,10 +820,14 @@ Auto_EDA<-function(dataset){
   require(moments)
   require(openxlsx)
   require(ggplot2)
-  require(corrplot)
   require(fitdistrplus)
   require(DescTools)
   require(ICC)
+  require(leaps)
+  require(pls)
+  require(corrplot)
+  require(car)
+  require(mctest)
 
   start<-dlgMessage(message = c("It is highly advised to pre-process data using the 'Pre_Proc' function in this package before EDA",
                                 "Do you want to continue?"),type = "yesno")$res
@@ -767,16 +838,29 @@ Auto_EDA<-function(dataset){
     dt<-as.data.table(dataset)
     tar<-dlgMessage(message = "Does the data contain a target/response variable?",type = "yesno")$res
     if(tar == "yes"){
-      target<-dlgList(choices = colnames(dt),multiple = F,title = "Choose the target/response variable")$res
-      target<-which(colnames(dt) == target)
+      target_nm<-dlgList(choices = colnames(dt),multiple = F,title = "Choose the target/response variable")$res
+      target<-which(colnames(dt) == target_nm)
+      pred_type<-dlgList(choices = c("Regression                    ","Classification"),multiple = F,title = "Predictive Analysis Type")$res
+      if(pred_type == "Classification"){
+        dt[[target]]<-as.factor(dt[[target]])
+      }
     }
     else if(tar == "no"){
       target<-vector()
+      pred_type<-"None"
     }
-    dt_cls<-dt[,lapply(X = .SD,FUN = class),.SDcols = colnames(dt)]
-    dt_cls<-as.character(dt_cls)
-    dt_num<-dt[,which(dt_cls == "numeric" | dt_cls == "integer"),with = F]
-    dt_cat<-dt[,which(dt_cls == "factor" | dt_cls == "character"),with = F]
+    cls<-character()
+    for(i in 1:ncol(dt)){
+      int_cls<-class(dt[[i]])
+      if(length(int_cls) > 1){
+        cls[i]<-paste(int_cls,collapse = " ")
+      }
+      else {
+        cls[i]<-int_cls
+      }
+    }
+    dt_num<-dt[,which(cls %in% c("numeric","integer")),with = F]
+    dt_cat<-dt[,which(cls %in% c("numeric","integer") == F),with = F]
 
     ################################-----Summary stats-----################################
 
@@ -911,7 +995,7 @@ Auto_EDA<-function(dataset){
         cv_tab<-as.data.table(cbind("Variable" = var_nm,cv_mat))
         print(cv_tab)
         sv_cv<-dlgMessage(message = c("The Cramer's V for the categorical variables has been printed in the console",
-                                       "Do you want to save it as a report?"),type = "yesno")$res
+                                      "Do you want to save it as a report?"),type = "yesno")$res
         if(sv_cv == "yes"){
           sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
                            title = "Choose output file format")$res
@@ -930,7 +1014,7 @@ Auto_EDA<-function(dataset){
       }
     }
 
-    if(length(target) > 0 && dt_cls[target] %in% c("numeric","integer")){
+    if(length(target) > 0 && cls[target] %in% c("numeric","integer") && ncol(dt_cat) > 0){
       icc<-dlgMessage(message = c("Do you want to calculate the Interclass Correlation Coefficients?",
                                   "NOTE : The ICC is calculated for each categorical variable with respect to the target"),
                       type = "yesno")$res
@@ -943,7 +1027,7 @@ Auto_EDA<-function(dataset){
         dt_icc<-data.table("Variable" = feats,"ICC" = icc_val)
         print(dt_icc)
         sv_icc<-dlgMessage(message = c("The ICC for each variable have been printed in the console",
-                                      "Do you want to save it as a report?"),type = "yesno")$res
+                                       "Do you want to save it as a report?"),type = "yesno")$res
         if(sv_icc == "yes"){
           sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
                            title = "Choose output file format")$res
@@ -962,8 +1046,366 @@ Auto_EDA<-function(dataset){
       }
     }
 
+    ################################-----PCA-----################################
+
+    if(ncol(dt_num) > 0){
+      pca_do<-dlgMessage(message = "Do you want to perform Principal Component Analysis?",type = "yesno")$res
+      if(pca_do == "yes"){
+        pca_go<-dlgMessage(message = c("PCA will only take the numerical data as input","Continue?"),type = "yesno")$res
+        if(pca_go == "yes"){
+          if(ncol(dt_num) < 3){
+            pca_force<-dlgMessage(message = c(paste("There are only",ncol(dt_num),"numerical variables in the data",sep = " "),
+                                              "Do you still want to perform PCA?"),type = "yesno")$res
+          }
+          else {
+            pca_force<-"yes"
+          }
+          if(pca_force == "yes"){
+            pca_tar<-dlgMessage(message = "Does the data contain a numeric target/response variable?",type = "yesno")$res
+            if(pca_tar == "no"){
+              pca_dt<-dt_num
+            }
+            else if(pca_tar == "yes"){
+              pca_tv<-dlgList(choices = c(colnames(dt_num),"Not listed"),multiple = F,title = "Select target")$res
+              if(pca_tv == "Not listed"){
+                pca_dt<-dt_num
+              }
+              else {
+                tar_pca<-dt_num[[which(colnames(dt_num) == pca_tv)]]
+                names(tar_pca)<-pca_tv
+                pca_dt<-dt_num[,-which(colnames(dt_num) == pca_tv),with = F]
+              }
+            }
+            pca_sc<-dlgMessage(message = c("Do you want to scale or center the data before PCA?",
+                                           "It is suggested to both center and scale the data"),type = "yesno")$res
+            if(pca_sc == "yes"){
+              pca_op<-dlgList(choices = c("Scale","Center","Both"),multiple = F,preselect = "Both",title = "Choose method")$res
+              if(pca_op == "Scale"){
+                pca<-prcomp(x = pca_dt,center = F,scale. = T)
+              }
+              else if(pca_op == "Center"){
+                pca<-prcomp(x = pca_dt,center = T,scale. = F)
+              }
+              else if(pca_op == "Both"){
+                pca<-prcomp(x = pca_dt,center = T,scale. = T)
+              }
+            }
+            else {
+              pca<-prcomp(x = pca_dt,center = F,scale. = F)
+            }
+            vars<-apply(X = pca$x,MARGIN = 2,FUN = var)
+            props<-vars/sum(vars)
+            cumvar<-as.data.table(melt(round(x = cumsum(x = props) * 100,digits = 2)))
+            cumvar<-cumvar[,.("PC" = names(vars),"Cumulative Variance Explained (%)" = value)]
+            propvar<-as.data.table(melt(round(x = props * 100,digits = 2)))
+            propvar<-propvar[,.("PC" = factor(x = names(vars),levels = names(vars)),"Variance Expained (%)" = value)]
+            cat("Cumulative percentage of variation explained by each Principal Component:\n\n")
+            print(cumvar)
+            fl_nm<-paste(sv_path,"\\Screeplot.jpeg",sep = "")
+            jpeg(filename = fl_nm,quality = 100)
+            screeplot<-ggplot(data = propvar) +
+              geom_col(mapping = aes(x = PC,y = propvar$`Variance Expained (%)`),fill = "blue") +
+              ggtitle(label = "Screeplot",subtitle = "Principal Component Analysis") +
+              xlab(label = "Principal Component") + ylab(label = "Variance Explained (%)") +
+              theme(legend.position = "none")
+            print(screeplot)
+            dev.off()
+            dlgMessage(message = c("The PCA results have been printed in the console and the screeplot has been generated and saved in your working directory",
+                                   "Inspect them before proceeding"),type = "ok")
+            sv_pca<-dlgMessage(message = "Do you want to save the PCA scores (transformed data)?",type = "yesno")$res
+            if(sv_pca == "yes"){
+              sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                               title = "Choose output file format")$res
+              if(sv_form == ".csv"){
+                write.csv2(x = as.data.table(pca$x),row.names = F,file = paste(sv_path,"Auto_EDA-PCA_Scores.csv",sep = "\\"))
+              }
+              else if(sv_form == ".xls"){
+                write.xlsx(x = as.data.table(pca$x),col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PCA_Scores.xls",sep = "\\"))
+              }
+              else if(sv_form == ".xlsx"){
+                write.xlsx(x = as.data.table(pca$x),col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PCA_Scores.xlsx",sep = "\\"))
+              }
+            }
+            rep_pca<-dlgMessage(message = "Do you want to replace the numerical variables with Principal Components?",
+                                type = "yesno")$res
+            if(rep_pca == "yes" && pca_tar == "yes"){
+              pca_no<-as.numeric(dlgInput(message = c("Enter the number of Principal Components to be included in the data",
+                                                      paste("Maximum value allowed:",ncol(pca$x),sep = " ")),default = 2)$res)
+              pca_bind<-as.data.table(pca$x[,1:pca_no])
+              colnames(pca_bind)<-colnames(pca$x)[1:pca_no]
+              dt<-dt[,which(cls %in% c("numeric","integer") == F),with = F]
+              if(ncol(dt) > 0){
+                dt<-as.data.table(cbind(dt,pca_bind,tar_pca))
+                colnames(dt)[ncol(dt)]<-names(tar_pca)
+                target<-ncol(dt)
+              }
+              else {
+                dt<-as.data.table(cbind(pca_bind,tar_pca))
+                colnames(dt)[ncol(dt)]<-names(tar_pca)
+                target<-ncol(dt)
+              }
+              sv_newdt<-dlgMessage(message = "Do you want to save the new data with Principal Components?",type = "yesno")$res
+              if(sv_newdt == "yes"){
+                sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                                 title = "Choose output file format")$res
+                if(sv_form == ".csv"){
+                  write.csv2(x = dt,row.names = T,file = paste(sv_path,"Auto_EDA-PCA_New_Data.csv",sep = "\\"))
+                }
+                else if(sv_form == ".xls"){
+                  write.xlsx(x = dt,col.names = T,row.names = T,file = paste(sv_path,"Auto_EDA-PCA_New_Data.xls",sep = "\\"))
+                }
+                else if(sv_form == ".xlsx"){
+                  write.xlsx(x = dt,col.names = T,row.names = T,file = paste(sv_path,"Auto_EDA-PCA_New_Data.xlsx",sep = "\\"))
+                }
+              }
+            }
+            else if(rep_pca == "yes" && pca_tar == "no"){
+              pca_no<-as.numeric(dlgInput(message = c("Enter the number of Principal Components to be included in the data",
+                                                      paste("Maximum value allowed:",ncol(pca$x),sep = " ")),default = 2)$res)
+              pca_bind<-as.data.table(pca$x[,1:pca_no])
+              colnames(pca_bind)<-colnames(pca$x)[1:pca_no]
+              dt<-dt[,-which(cls %in% c("numeric","integer")),with = F]
+              if(ncol(dt) > 0){
+                dt<-as.data.table(cbind(dt,pca_bind))
+              }
+              else {
+                dt<-pca_bind
+              }
+              sv_newdt<-dlgMessage(message = "Do you want to save the new data with Principal Components?",type = "yesno")$res
+              if(sv_newdt == "yes"){
+                sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                                 title = "Choose output file format")$res
+                if(sv_form == ".csv"){
+                  write.csv2(x = dt,row.names = F,file = paste(sv_path,"Auto_EDA-PCA_New_Data.csv",sep = "\\"))
+                }
+                else if(sv_form == ".xls"){
+                  write.xlsx(x = dt,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PCA_New_Data.xls",sep = "\\"))
+                }
+                else if(sv_form == ".xlsx"){
+                  write.xlsx(x = dt,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PCA_New_Data.xlsx",sep = "\\"))
+                }
+              }
+            }
+            sv_rot<-dlgMessage(message = "Do you want to save the PCA rotations?",type = "yesno")$res
+            if(sv_rot == "yes"){
+              sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                               title = "Choose output file format")$res
+              if(sv_form == ".csv"){
+                write.csv2(x = pca$rotation,row.names = T,file = paste(sv_path,"Auto_EDA-PCA_Rotation.csv",sep = "\\"))
+              }
+              else if(sv_form == ".xls"){
+                write.xlsx(x = pca$rotation,col.names = T,row.names = T,file = paste(sv_path,"Auto_EDA-PCA_Rotation.xls",sep = "\\"))
+              }
+              else if(sv_form == ".xlsx"){
+                write.xlsx(x = pca$rotation,col.names = T,row.names = T,file = paste(sv_path,"Auto_EDA-PCA_Rotation.xlsx",sep = "\\"))
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ################################-----Best subsets-----################################
+
+    if(length(target) > 0){
+      reg<-dlgMessage(message = c("Do you want to check for the best subsets in the data for predictive analysis?",
+                                  "NOTE: Categorical variables present in the data will be dummified"),type = "yesno")$res
+      if(reg == "yes"){
+        nvmax<-as.numeric(dlgInput(message = c("Enter the maximum size of subsets to examine",
+                                               paste("Maximum value allowed:",ncol(dt),sep = " ")),
+                                   default = round(x = ncol(dt)*0.5,digits = 0))$res)
+        reg_form<-as.formula(paste(target_nm,"~ .",sep = " "))
+        reg_res<-summary(regsubsets(reg_form,data = dt,nvmax = nvmax))$which
+        id<-1:nvmax
+        reg_res<-as.data.table(cbind("No of Subsets" = id,reg_res[,-1]))
+        print(reg_res)
+        sv_reg<-dlgMessage(message = c("The best variables for each no of subsets has been printed in the console",
+                                       "Do you want to save the results?"),type = "yesno")$res
+        if(sv_reg == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = reg_res,row.names = F,file = paste(sv_path,"Auto_EDA-Best_Subsets.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = reg_res,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Best_Subsets.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = reg_res,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Best_Subsets.xlsx",sep = "\\"))
+          }
+        }
+      }
+    }
+
+    ################################-----Partial Least Squares-----################################
+
+    if(length(target) > 0 && pred_type != "Classification"){
+      pls_do<-dlgMessage(message = c("Do you want to check components using PLS Regression?",
+                                     "NOTE: Categorical variables present in the data will be dummified"),
+                         type = "yesno")$res
+      if(pls_do == "yes"){
+        pls_form<-as.formula(paste(target_nm,"~ .",sep = " "))
+        res_pls<-plsr(pls_form,data = dt,scale = T)
+        print(summary(res_pls))
+        fl_nm<-paste(sv_path,"\\PLS_val_plot.jpeg",sep = "")
+        jpeg(filename = fl_nm,quality = 100)
+        validationplot(object = res_pls)
+        dev.off()
+        dlgMessage(message = c("The summary of results from PLS Regression have been printed in the console",
+                               "The validation plot has been generated and saved in your working directory",
+                               "Inspect them before proceeding"),type = "ok")
+        sv_pls<-dlgMessage(message = "Do you want to save the PLSR scores?",type = "yesno")$res
+        if(sv_pls == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = as.data.table(unclass(res_pls$scores)),row.names = F,file = paste(sv_path,"Auto_EDA-PLSR_Components.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = as.data.table(unclass(res_pls$scores)),col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PLSR_Components.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = as.data.table(unclass(res_pls$scores)),col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PLSR_Components.xlsx",sep = "\\"))
+          }
+        }
+        pls_rep<-dlgMessage(message = "Do you want to replace the data with the PLSR components?",type = "yesno")$res
+        if(pls_rep == "yes"){
+          pls_no<-as.numeric(dlgInput(message = c("Enter the number of PLSR components to use",
+                                                  paste("Maximum value allowed:",ncol(res_pls$scores),sep = " ")),default = 2)$res)
+          dt_pls<-as.data.table(res_pls$scores[,1:pls_no])
+          pls_tar<-dt[[which(colnames(dt) == target_nm)]]
+          dt<-as.data.table(cbind(dt_pls,pls_tar))
+          colnames(dt)[ncol(dt)]<-target_nm
+          target<-ncol(dt)
+          sv_plsc<-dlgMessage(message = "Do you want to save the new data containing the PLSR components?",type = "yesno")$res
+          if(sv_plsc == "yes"){
+            sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                             title = "Choose output file format")$res
+            if(sv_form == ".csv"){
+              write.csv2(x = dt,row.names = F,file = paste(sv_path,"Auto_EDA-PLSR_New_Data.csv",sep = "\\"))
+            }
+            else if(sv_form == ".xls"){
+              write.xlsx(x = dt,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PLSR_New_Data.xls",sep = "\\"))
+            }
+            else if(sv_form == ".xlsx"){
+              write.xlsx(x = dt,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-PLSR_New_Data.xlsx",sep = "\\"))
+            }
+          }
+          dlgMessage(message = "The data with the PLSR components has been successfully saved in your working directory",type = "ok")
+        }
+      }
+    }
+
+    ################################-----VIF and Collinearity Check-----################################
+
+    cls<-character()
+    for(i in 1:ncol(dt)){
+      int_cls<-class(dt[[i]])
+      if(length(int_cls) > 1){
+        cls[i]<-paste(int_cls,collapse = " ")
+      }
+      else {
+        cls[i]<-int_cls
+      }
+    }
+    dt_num<-dt[,which(cls %in% c("numeric","integer")),with = F]
+    dt_cat<-dt[,which(cls %in% c("numeric","integer") == F),with = F]
+
+    if(ncol(dt_num) > 1 && length(target) > 0 && pred_type != "Classification"){
+      mcol<-dlgMessage(message = c("Do you want to perform Multicollinearity Diagnosis on the dataset?",
+                                   "NOTE: Only numerical variables will be considered"),type = "yesno")$res
+      if(mcol == "yes"){
+        tar_num<-which(colnames(dt_num) == target_nm)
+        dt_mcm<-imcdiag(x = dt_num[,-tar_num,with = F],y = dt_num[[tar_num]],na.rm = T,all = T)$idiags
+        mc_var<-rownames(dt_mcm)
+        dt_mcm<-as.data.table(cbind("Variable" = mc_var,dt_mcm))
+        cat("Multicollinearity Diagnostic Measures:\n")
+        print(dt_mcm)
+        sv_mcm<-dlgMessage(message = c("The Multicollinearity Diagnostic Measures have been computed and printed in the console",
+                                       "Do you want to save them as a report?"),type = "yesno")$res
+        if(sv_mcm == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = dt_mcm,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_Measures.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = dt_mcm,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_Measures.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = dt_mcm,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_Measures.xlsx",sep = "\\"))
+          }
+        }
+        dt_mcd<-imcdiag(x = dt_num[,-tar_num,with = F],y = dt_num[[tar_num]],na.rm = T,all = T)$alldiag
+        mc_var<-rownames(dt_mcd)
+        dt_mcd<-as.data.table(cbind("Variable" = mc_var,dt_mcd))
+        cat("Multicollinearity Detection:\n")
+        print(dt_mcd)
+        sv_mcd<-dlgMessage(message = c("The results from Multicollinearity detection have been printed on the console",
+                                       "Do you want to save the results as a report?",
+                                       "NOTE: TRUE indicates the presence of multicollinearity as per the computed diagnostic measure"),type = "yesno")$res
+        if(sv_mcd == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = dt_mcd,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_Detection.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = dt_mcd,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_Detection.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = dt_mcd,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_Detection.xlsx",sep = "\\"))
+          }
+        }
+        dlgMessage("Multicollinearity check has been successfully completed")
+      }
+    }
+    else if(length(target) > 0 && pred_type != "Classification"){
+      mcol<-dlgMessage(message = "Do you want to perform Multicollinearity Diagnosis on the dataset?",type = "yesno")$res
+      if(mcol == "yes"){
+        mod_lm<-glm(formula = as.formula(paste(target_nm,".",sep = "~")),data = dt)
+        dt_vif<-vif(mod = mod_lm)
+        if(class(dt_vif) == "numeric"){
+          res_vif<-as.data.table(cbind("Variable" = names(dt_vif),"VIF" = dt_vif))
+        }
+        else {
+          res_vif<-as.data.table(cbind("Variable" = rownames(dt_vif),dt_vif))
+        }
+        cat("Multicollinearity Diagnostic Measures:\n")
+        print(res_vif)
+        sv_vif<-dlgMessage(message = c("The VIF measures have been computed and printed in the console",
+                                       "Do you want to save them as a report?"),type = "yesno")$res
+        if(sv_vif == "yes"){
+          sv_form<-dlgList(choices = c(".csv",".xls",".xlsx"),preselect = ".xlsx",multiple = F,
+                           title = "Choose output file format")$res
+          if(sv_form == ".csv"){
+            write.csv2(x = res_vif,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_VIF.csv",sep = "\\"))
+          }
+          else if(sv_form == ".xls"){
+            write.xlsx(x = res_vif,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_VIF.xls",sep = "\\"))
+          }
+          else if(sv_form == ".xlsx"){
+            write.xlsx(x = res_vif,col.names = T,row.names = F,file = paste(sv_path,"Auto_EDA-Multicollinearity_VIF.xlsx",sep = "\\"))
+          }
+        }
+        dlgMessage("Multicollinearity check has been successfully completed")
+      }
+    }
+
     ################################-----Plot generation-----################################
 
+    cls<-character()
+    for(i in 1:ncol(dt)){
+      int_cls<-class(dt[[i]])
+      if(length(int_cls) > 1){
+        cls[i]<-paste(int_cls,collapse = " ")
+      }
+      else {
+        cls[i]<-int_cls
+      }
+    }
+    dt_num<-dt[,which(cls %in% c("numeric","integer")),with = F]
+    dt_cat<-dt[,which(cls %in% c("numeric","integer") == F),with = F]
     plot_choice<-vector()
     if(ncol(dt_cat) > 0){
       plot_choice<-c(plot_choice,"Frequency plots")
@@ -973,11 +1415,11 @@ Auto_EDA<-function(dataset){
                      "Distribution description plots (Cullen and Frey graph)",
                      "Fitted distribution plots","All")
     }
-    if(length(target) > 0 && dt_cls[target] %in% c("numeric","integer")){
+    if(length(target) > 0 && cls[target] %in% c("numeric","integer")){
       plot_choice<-c("Target vs Predictor plots",plot_choice)
       target_num<-which(colnames(dt_num) == colnames(dt)[target])
     }
-    else if(length(target) > 0 && dt_cls[target] %in% c("numeric","integer") == F){
+    else if(length(target) > 0 && cls[target] %in% c("numeric","integer") == F){
       dlgMessage(message = c("The target variable is categorical",
                              "Target vs Predictor plots will not be generated"),type = "ok")
     }
@@ -992,7 +1434,7 @@ Auto_EDA<-function(dataset){
     }
 
     if("Target vs Predictor plots" %in% gen_plots | "All" %in% gen_plots){
-      if(length(target) > 0 && dt_cls[target] %in% c("numeric","integer")){
+      if(length(target) > 0 && cls[target] %in% c("numeric","integer")){
         feats<-1:ncol(dt_num)
         feats<-feats[-target_num]
         colnm<-gsub(pattern = "\\%",replacement = "pct",x = colnames(dt_num))

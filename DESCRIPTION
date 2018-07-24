@@ -2,7 +2,7 @@ Package: AutoAnalyse
 Type: Package
 Title: Automated data analysis with GUI
 Version: 0.1.0
-Depends: R (>= 3.3.0),data.table,svDialogs,DMwR,moments,openxlsx,ggplot2,corrplot,fitdistrplus,dummies,DescTools,ICC
+Depends: R (>= 3.3.0),data.table,svDialogs,DMwR,moments,openxlsx,ggplot2,fitdistrplus,dummies,DescTools,ICC,ROSE,leaps,pls,corrplot,car,mctest
 Author: Supratim Chaudhuri
 Maintainer: Supratim Chaudhuri <supratim1121992@gmail.com>
 Description: The package provides functions to easily analyse data through an interactive GUI without having to write code
