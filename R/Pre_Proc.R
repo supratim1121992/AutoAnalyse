@@ -64,6 +64,14 @@ Pre_Proc<-function(dataset){
   dlgMessage(message = c("The dataset has been successfully read",paste("Number of variables",col_no,sep = ": "),
                          paste("Number of observations",row_no,sep = ": ")),type = "ok")
   dlgMessage(message = c("Variable Summary:",cls_info),type = "ok")
+  col_list<-strsplit(x = colnames(dt),split = " ")
+  col_word<-unlist(lapply(X = col_list,FUN = length))
+  col_re<-which(col_word > 1)
+  if(length(col_re) >= 1){
+    for(i in col_re){
+      colnames(dt)[i]<-paste(col_list[[i]],collapse = "_")
+    }
+  }
   col_names<-colnames(dt)
   struc<-dlgMessage(message = "Do you want to view the data structure?",type = "yesno")$res
   if(struc == "yes"){
@@ -128,7 +136,7 @@ Pre_Proc<-function(dataset){
     dup_check<-dlgMessage(message = c("The input data has duplicated entries","Would you like to inpect them further?"),
                           type = "yesno")$res
     if(dup_check == "yes"){
-      write.csv(x = dt[dup,],file = "Pre_Proc-Duplicates.csv",row.names = F,col.names = T)
+      write.csv(x = dt[dup,],file = "Pre_Proc-Duplicates.csv",row.names = F)
       dlgMessage(message = "The duplicated data has been saved in your working directory",type = "ok")
       dup_rem<-dlgMessage(message = "Do you want to remove the duplicates in your data?",type = "yesno")$res
       if(dup_rem == "yes"){
@@ -282,6 +290,13 @@ Pre_Proc<-function(dataset){
     })
   }
 
+  if("integer" %in% cls){
+    conv_num<-colnames(dt)[which(cls == "integer")]
+    for(i in 1:length(conv_num)){
+      dt[,conv_num[i] := as.numeric(dt[[conv_num[i]]])]
+    }
+  }
+
   ################################-----Outlier detection and replacement-----################################
 
   if("numeric" %in% cls | "integer" %in% cls){
@@ -360,9 +375,9 @@ Pre_Proc<-function(dataset){
             if(out_act == "Replace outliers"){
               for(i in 1:length(out_var)){
                 dt[dt[[out_var[i]]] < (mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T)),
-                   out_var[i] := (mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T))]
+                   out_var[i] := as.numeric(mean(x = dt[[out_var[i]]],na.rm = T) - 3*sd(x = dt[[out_var[i]]],na.rm = T))]
                 dt[dt[[out_var[i]]] > (mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T)),
-                   out_var[i] := (mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T))]
+                   out_var[i] := as.numeric(mean(x = dt[[out_var[i]]],na.rm = T) + 3*sd(x = dt[[out_var[i]]],na.rm = T))]
               }
               dlgMessage(message = "Outliers have been successfully replaced")
             }
@@ -724,7 +739,7 @@ Pre_Proc<-function(dataset){
             x[which(is.na(x) == T)]<-mean(x,na.rm = T)
           }
           dlgMessage(message = "Imputing missing values with the mean value",type = "ok")
-          dt<-dt[,lapply(X = .SD,FUN = Impute_Mean),.SDcols = colnames(dt_num)]
+          dt<-dt[,lapply(X = .SD,FUN = Impute_Mean),.SDcols = colnames(dt)]
           dlgMessage(message = "Imputation completed",type = "ok")
         }
       }
