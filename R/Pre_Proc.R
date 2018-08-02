@@ -136,7 +136,8 @@ Pre_Proc<-function(dataset){
     dup_check<-dlgMessage(message = c("The input data has duplicated entries","Would you like to inpect them further?"),
                           type = "yesno")$res
     if(dup_check == "yes"){
-      write.csv(x = dt[dup,],file = "Pre_Proc-Duplicates.csv",row.names = F)
+      # write.csv(x = dt[dup,],file = "Pre_Proc-Duplicates.csv",row.names = F)
+      write.xlsx(x = dt[dup,],file = "Pre_Proc-Duplicates.xlsx",asTable = T,colNames = T,rowNames = F)
       dlgMessage(message = "The duplicated data has been saved in your working directory",type = "ok")
       dup_rem<-dlgMessage(message = "Do you want to remove the duplicates in your data?",type = "yesno")$res
       if(dup_rem == "yes"){
@@ -786,8 +787,11 @@ Pre_Proc<-function(dataset){
                                       "NOTE: Major class imbalance has been observed in your dataset"),type = "yesno")$res
     }
     if(fix_imb == "yes"){
+      rose_nm<-colnames(dt)
+      colnames(dt)<-paste("Col",1:length(rose_nm),sep = "_")
       rose_form<-as.formula(paste(colnames(dt)[target],"~ .",sep = " "))
       dt<-as.data.table(ROSE(formula = rose_form,data = dt)$data)
+      colnames(dt)<-rose_nm
       dlgMessage(message = "The class imbalance in the data has been fixed successfully",type = "ok")
     }
   }
