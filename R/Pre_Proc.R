@@ -1,5 +1,8 @@
 # Implement (Pending):
 
+# Undo
+# Multiple seps,Multiple targets
+# Variable merge by formula,paste(characters)
 # Print best fit and present options accordingly -- Not possible with fitdistrplus (Will need explicit function)
 # Time series : Auto read time/date variable
 # Memory management -- parallel package explored but can only be incorporated for cases where data subsets are unrelated
@@ -1234,7 +1237,13 @@ Auto_EDA<-function(dataset){
                                                paste("Maximum value allowed:",ncol(dt),sep = " ")),
                                    default = round(x = ncol(dt)*0.5,digits = 0))$res)
         reg_form<-as.formula(paste(target_nm,"~ .",sep = " "))
-        reg_res<-summary(regsubsets(reg_form,data = dt,nvmax = nvmax))$which
+        print("OK")
+        print(ncol(dt))
+        tryCatch({
+          reg_res<-summary(regsubsets(reg_form,data = dt,nvmax = nvmax))$which
+        },error = function(e){
+          reg_res<-summary(regsubsets(reg_form,data = dt,nvmax = nvmax,really.big = T))$which
+        })
         id<-1:nvmax
         reg_res<-as.data.table(cbind("No of Subsets" = id,reg_res[,-1]))
         print(reg_res)
